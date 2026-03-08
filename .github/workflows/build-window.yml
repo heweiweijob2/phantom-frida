@@ -1,37 +1,39 @@
-name: Build PhantomFrida Windows-x64
-on:
-  workflow_dispatch:
+name: Build Phantom-Frida Windows-x64
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PhantomFrida
+      - name: Checkout 主仓库（强制递归拉取所有子模块）
         uses: actions/checkout@v4
         with:
-          repository: heweiweijob2/phantom-frida
+          repository: TheQmaks/phantom-frida
           ref: main
-          token: ${{ secrets.GH_TOKEN }}
+          submodules: recursive  # 👈 关键：强制拉子模块
+          fetch-depth: 0         # 👈 关键：拉完整历史
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: |
           sudo apt update
-          sudo apt install -y build-essential python3 python3-pip git mingw-w64 libc6-dev-i386
-
-      - name: Install Python packages
-        run: |
+          sudo apt install -y build-essential python3 python3-pip mingw-w64
           python3 -m pip install -U pip
-          python3 -m pip install -r requirements.txt
+          pip install -r requirements.txt
 
-      - name: Patch build.py
+      - name: 允许 windows-x64 编译
         run: |
-          sed -i 's/allowed_architectures =.*/allowed_architectures = ["android-arm64","android-x86_64","windows-x64"]/' build.py
+          sed -i 's/allowed_architectures =.*/allowed_architectures = ["windows-x64", "android-arm64"]/' build.py
 
-      - name: Build Windows-x64
+      - name: 开始编译
         run: |
-          python3 build.py --version 17.2.0 --name system --port 35791 --arch windows-x64 --extended
+          python3 build.py \
+            --version 17.2.0 \
+            --arch windows-x64 \
+            --name system \
+            --port 35791 \
+            --extended
 
-      - name: Upload artifact
+      - name: 上传编译好的文件
         uses: actions/upload-artifact@v4
         with:
           name: phantom-frida-windows-x64
