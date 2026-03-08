@@ -1,4 +1,4 @@
-name: Build PhantomFrida Win10 x64 System 35791 (23rd终极版)
+name: Build PhantomFrida Win10 x64 System 35791 
 on: workflow_dispatch
 jobs:
   build:
@@ -6,38 +6,37 @@ jobs:
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
-      - name: 安装全套交叉编译依赖
+      - name: 安装依赖
         run: |
           sudo apt update -y && sudo apt install -y build-essential python3 python3-pip git mingw-w64 autoconf automake libtool pkg-config
           pip3 install colorama
-      - name: 拉取Frida17.2.0源码(带子模块)
+      - name: 拉取Frida17.2.0源码
         run: git clone --recurse-submodules --depth 1 --branch 17.2.0 https://github.com/frida/frida.git frida
-      - name: 应用隐身扩展补丁(PhantomFrida核心)
+      - name: 应用隐身补丁
         run: python3 patches.py --frida-version 17.2.0 --extended
-      - name: 绕开build.py架构检测(关键一步)
+      - name: 绕开架构检测
         run: |
           sed -i '/if arch not in ARCHES:/s/^/#/' build.py
           sed -i '/raise ValueError(f"Unknown architecture: {arch}")/s/^/#/' build.py
-      - name: 魔改端口+进程名(全局替换，无残留)
+      - name: 修改端口和进程名
         run: |
           cd frida
-          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" -o -name "*.sh" \) -exec sed -i 's/27042/35791/g' {} \;
-          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" -o -name "*.sh" \) -exec sed -i 's/frida-server/system/g' {} \;
-          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" -o -name "*.sh" \) -exec sed -i 's/frida/system/g' {} \;
-      - name: 强制Windows交叉编译配置
+          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" \) -exec sed -i 's/27042/35791/g' {} \;
+          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" \) -exec sed -i 's/frida-server/system/g' {} \;
+          find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.py" \) -exec sed -i 's/frida/system/g' {} \;
+      - name: 强制Windows编译
         run: |
           cd frida
-          ./autogen.sh
           ./configure --host=x86_64-w64-mingw32 --prefix=$(pwd)/build
           make -j$(nproc) && make install
-      - name: 查找并拷贝最终EXE
+      - name: 查找产物
         run: |
           find frida -name "system.exe" -o -name "frida-server.exe" | xargs cp -t ./
           ls -lh ./*.exe
-      - name: 上传最终可执行文件
+      - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: system-35791-win10-x64-终极版
+          name: system-35791-win10-x64
           path: |
             ./system.exe
             ./frida-server.exe
