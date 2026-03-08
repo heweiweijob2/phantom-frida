@@ -1,4 +1,4 @@
-name: Build PhantomFrida 17.2.0 Windows x64 魔改版
+name: Build PhantomFrida 17.2.0 Win10 x64(端口35791-进程名system-隐身)
 
 on:
   workflow_dispatch:
@@ -8,48 +8,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install build tools
+      - name: 安装交叉编译工具
         run: |
           sudo apt update
-          sudo apt install -y \
-            build-essential \
-            python3 \
-            python3-pip \
-            git \
-            ninja-build \
-            mingw-w64
+          sudo apt install -y build-essential python3 git mingw-w64
 
-      - name: Install Python deps
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
-
-      - name: Apply patches (魔改核心)
+      - name: 打 Phantom 魔改补丁
         run: |
           python3 patches.py --frida-version 17.2.0
 
-      - name: Enter frida source
-        run: cd frida
+      - name: 强制修改端口为 35791 + 进程名 system
+        run: |
+          cd frida
+          # 改端口
+          grep -rl "27042" --include="*.c" --include="*.h" --include="*.cpp" | xargs sed -i 's/27042/35791/g'
+          # 改进程名
+          grep -rl "frida" --include="*.c" --include="*.h" --include="*.cpp" | xargs sed -i 's/frida/system/g'
 
-      - name: Configure for Windows x64
+      - name: 编译 Windows x64
         run: |
           cd frida
           ./configure --host=x86_64-w64-mingw32
-
-      - name: Build
-        run: |
-          cd frida
           make -j$(nproc)
 
-      - name: Upload Windows exe
+      - name: 上传最终魔改 exe
         uses: actions/upload-artifact@v4
         with:
-          name: phantom-frida-17.2.0-windows-x64-modded
+          name: phantom-frida-17.2.0-win10-x64-system-35791
           path: |
             frida/build/frida.exe
             frida/build/frida-server.exe
