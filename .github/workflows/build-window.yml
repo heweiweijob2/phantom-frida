@@ -1,20 +1,33 @@
-name: Build Windows PhantomFrida
-on: [workflow_dispatch]
+name: Build Frida 17.2.0 Windows
+on: workflow_dispatch
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up WSL
-        uses: Vampire/setup-wsl@v2
-      - name: Install dependencies in WSL
-        run: wsl -- bash -exc "sudo apt update && sudo apt install -y python3 python3-pip git meson ninja-build && python3 -m pip install --upgrade pip && pip3 install colorama prompt-toolkit pygments"
-      - name: Run build script in WSL
-        run: wsl -- bash -exc "cd /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida && python3 build.py --version 16.4.0 --name stealthfrida --port 27142 --target windows-x86_64"
-      - name: Copy artifact to Windows
-        run: wsl -- bash -exc "cp /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida/output/stealthfrida-server-16.4.0-windows-x86_64.exe /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida/"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-pip mingw-w64 git
+          pip3 install frida-tools
+          npm install -g prebuildify
+      - name: Clone Frida repo and checkout 17.2.0
+        run: |
+          git clone https://github.com/frida/frida.git
+          cd frida
+          git checkout 17.2.0
+          python3 tools/ensure-submodules.py
+          npm install
+      - name: Cross-compile to Windows x64
+        run: |
+          cd frida
+          prebuildify --platform win32 --arch x64 --target 14.15.0
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-phantom-frida-server
-          path: stealthfrida-server-16.4.0-windows-x86_64.exe
+          name: frida-17.2.0-win32-x64
+          path: frida/prebuilds/win32-x64/
