@@ -9,7 +9,7 @@ jobs:
       - name: Checkout PhantomFrida
         uses: actions/checkout@v4
         with:
-          repository: TheQmaks/phantom-frida
+          repository: heweiweijob2/phantom-frida
           ref: main
           token: ${{ secrets.GH_TOKEN }}
 
