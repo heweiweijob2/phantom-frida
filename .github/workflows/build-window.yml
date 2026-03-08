@@ -1,6 +1,6 @@
 name: Build PhantomFrida Windows-x64
 on:
-  workflow_dispatch: # 手动点运行
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,26 +11,27 @@ jobs:
         with:
           repository: TheQmaks/phantom-frida
           ref: main
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential python3 python3-pip git mingw-w64 libc6-dev-i386
+
+      - name: Install Python packages
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install -r requirements.txt
 
       - name: Patch build.py
         run: |
           sed -i 's/allowed_architectures =.*/allowed_architectures = ["android-arm64","android-x86_64","windows-x64"]/' build.py
 
-      - name: Install Python deps
-        run: |
-          python3 -m pip install -U pip
-          python3 -m pip install -r requirements.txt
-
       - name: Build Windows-x64
         run: |
           python3 build.py --version 17.2.0 --name system --port 35791 --arch windows-x64 --extended
 
-      - name: Upload build
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: phantom-frida-windows-x64
