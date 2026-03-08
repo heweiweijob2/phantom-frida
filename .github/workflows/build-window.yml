@@ -1,37 +1,29 @@
-name: Build PhantomFrida Win10 x64 System 35791
-on: workflow_dispatch
-
+name: Build Stealth Frida Windows-x64
+on: [push]
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 150
+    runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
-
-      - name: 安装依赖
+      - name: Checkout PhantomFrida
+        uses: actions/checkout@v4
+        with:
+          repository: TheQmaks/phantom-frida
+          ref: main
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
         run: |
-          sudo apt update -y
-          sudo apt install -y build-essential python3 git mingw-w64 curl
-
-      - name: 拉取Frida 17.2.0
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          choco install visualstudio2022buildtools git nodejs nasm 7zip -y
+          refreshenv
+      - name: Build Stealth Frida
         run: |
-          git clone --recurse-submodules --depth 1 --branch 17.2.0 https://github.com/frida/frida.git
-
-      - name: 应用 Phantom 隐身补丁
-        run: |
-          python3 patches.py --frida-version 17.2.0 --extended
-
-      - name: 绕开架构检查
-        run: |
-          sed -i '/if arch not in ARCHES:/s/^/#/' build.py
-          sed -i '/raise ValueError(f"Unknown architecture: {arch}")/s/^/#/' build.py
-
-      - name: 编译 Windows x64 版（进程名system 端口35791）
-        run: |
-          python3 build.py --version 17.2.0 --name system --port 35791 --arch windows-x64 --skip-clone
-
-      - name: 打包产物
+          python build.py --version 17.2.0 --name system --port 35791 --arch windows-x64 --extended --verify
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: system-35791-win64
-          path: frida/build/frida-server.exe
+          name: stealth-frida-windows-x64
+          path: output/
