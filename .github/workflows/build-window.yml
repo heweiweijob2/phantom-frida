@@ -1,119 +1,32 @@
-name: Build PhantomFrida Win10 x64 System 35791
-on:
-  workflow_dispatch:
-    inputs:
-      frida_version:
-        description: 'Frida version (e.g. 17.2.0)'
-        required: true
-        default: '17.2.0'  # 固定默认17.2.0适配你手机
-      custom_name:
-        description: 'Custom name (replaces "frida" everywhere)'
-        required: true
-        default: 'system'  # 固定默认进程名system
-      arch:
-        description: 'Target architecture'
-        required: true
-        default: 'windows-x64'
-        type: choice
-        options:
-          - windows-x64  # 仅保留Windows x64，删所有安卓架构
-      port:
-        description: 'Custom port'
-        required: true
-        default: '35791'  # 固定默认端口35791
-      extended:
-        description: 'Extended anti-detection (隐身扩展)'
-        required: false
-        type: boolean
-        default: true  # 强制默认开启隐身扩展
-      temp_fixes:
-        description: 'Stability fixes'
-        required: false
-        type: boolean
-        default: false
+name: Build PhantomFrida Win10 x64 System 35791 (23rd)
+on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: System info
+      - uses: actions/checkout@v4
+      - name: Install dependencies
         run: |
-          echo "CPUs: $(nproc)"
-          echo "RAM: $(free -h | grep Mem | awk '{print $2}')"
-          echo "Disk: $(df -h / | tail -1 | awk '{print $4}') free"
-          python3 --version
-          git --version
-      - name: Install Windows交叉编译依赖
+          sudo apt update
+          sudo apt install -y build-essential python3 git mingw-w64
+      - name: Clone Frida 17.2.0
+        run: git clone --depth 1 --branch 17.2.0 https://github.com/frida/frida.git
+      - name: Apply PhantomFrida patches
+        run: python3 patches.py --frida-version 17.2.0 --extended
+      - name: Bypass architecture check in build.py
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential curl git python3 unzip mingw-w64  # 新增mingw-w64工具链
-      # Cache Frida source tree — 保留缓存，节省拉取时间
-      - name: Cache Frida source
-        uses: actions/cache@v4
-        id: frida-cache
-        with:
-          path: build/frida
-          key: frida-${{ inputs.frida_version }}-source-win
-      - name: Clone Frida 源码
-        if: steps.frida-cache.outputs.cache-hit != 'true'
+          sed -i 's/if arch not in ARCHES:/# if arch not in ARCHES:/' build.py
+          sed -i 's/    raise ValueError(f"Unknown architecture: {arch}")/#     raise ValueError(f"Unknown architecture: {arch}")/' build.py
+      - name: Force Windows cross-compile
         run: |
-          git clone --recurse-submodules --branch ${{ inputs.frida_version }} --depth 1 \
-            https://github.com/frida/frida.git build/frida
-      # 缓存命中时恢复干净源码（补丁是破坏性的）
-      - name: Prepare fresh source from cache
-        if: steps.frida-cache.outputs.cache-hit == 'true'
-        run: |
-          cd build/frida
-          git checkout -- .
-          git submodule foreach --recursive 'git checkout -- . || true'
-          git clean -fdx || true
-          rm -rf build/
-      - name: Build command 构建命令（删NDK，适配Windows）
-        id: cmd
-        run: |
-          CMD="python3 build.py --version ${{ inputs.frida_version }}"
-          CMD="$CMD --name ${{ inputs.custom_name }}"
-          CMD="$CMD --arch ${{ inputs.arch }}"
-          CMD="$CMD --skip-clone"  # 删安卓NDK路径，保留跳过克隆
-          CMD="$CMD --verify"
-          if [ -n "${{ inputs.port }}" ]; then
-            CMD="$CMD --port ${{ inputs.port }}"
-          fi
-          if [ "${{ inputs.extended }}" = "true" ]; then
-            CMD="$CMD --extended"
-          fi
-          if [ "${{ inputs.temp_fixes }}" = "true" ]; then
-            CMD="$CMD --temp-fixes"
-          fi
-          echo "cmd=$CMD" >> $GITHUB_OUTPUT
-          echo "Will run: $CMD"
-      - name: 应用补丁+编译Windows版本
-        run: ${{ steps.cmd.outputs.cmd }}
-      - name: 列出编译产物
-        run: |
-          echo "=== Build artifacts ==="
-          ls -lh output/
-          echo ""
-          echo "=== 二进制校验（残留frida字符）==="
-          for f in output/*; do
-            if [[ ! "$f" == *.gz ]]; then
-              count=$(strings "$f" | grep -c "frida" || true)
-              echo "$f: $count residual 'frida' strings"
-            fi
-          done
-      - name: 上传压缩版产物（长期保存30天）
+          python3 build.py --version 17.2.0 --name system --port 35791 --arch windows-x64 --skip-clone
+          cd frida
+          ./configure --host=x86_64-w64-mingw32
+          make -j$(nproc)
+      - name: Rename output to system.exe
+        run: mv frida/build/frida-server.exe system.exe
+      - name: Upload system.exe
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.custom_name }}-server-${{ inputs.frida_version }}-win10-x64
-          path: output/*.gz
-          retention-days: 30
-      - name: 上传未压缩EXE（快速使用7天）
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.custom_name }}-server-${{ inputs.frida_version }}-win10-x64-uncompressed
-          path: |
-            output/*
-            !output/*.gz
-          retention-days: 7
+          name: system-35791-win10-x64
+          path: system.exe
