@@ -1,4 +1,4 @@
-name: Build Frida 17.2.0 Windows
+name: Build Frida 17.2.0 Windows EXE
 on: workflow_dispatch
 jobs:
   build:
@@ -17,16 +17,15 @@ jobs:
           npm install -g prebuildify
       - name: Clone Frida repo and checkout 17.2.0
         run: |
-          git clone https://github.com/frida/frida.git
+          git clone -b 17.2.0 --depth=1 https://github.com/frida/frida.git
           cd frida
-          git checkout 17.2.0
           python3 tools/ensure-submodules.py
           npm install
       - name: Cross-compile to Windows x64
         run: |
           cd frida
           prebuildify --platform win32 --arch x64 --target 14.15.0
-      - name: Upload artifact
+      - name: Upload compiled EXE
         uses: actions/upload-artifact@v4
         with:
           name: frida-17.2.0-win32-x64
