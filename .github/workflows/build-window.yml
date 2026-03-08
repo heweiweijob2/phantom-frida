@@ -1,0 +1,20 @@
+name: Build Windows PhantomFrida
+on: [workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up WSL
+        uses: Vampire/setup-wsl@v2
+      - name: Install dependencies in WSL
+        run: wsl -- bash -exc "sudo apt update && sudo apt install -y python3 python3-pip git meson ninja-build && python3 -m pip install --upgrade pip && pip3 install colorama prompt-toolkit pygments"
+      - name: Run build script in WSL
+        run: wsl -- bash -exc "cd /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida && python3 build.py --version 16.4.0 --name stealthfrida --port 27142 --target windows-x86_64"
+      - name: Copy artifact to Windows
+        run: wsl -- bash -exc "cp /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida/output/stealthfrida-server-16.4.0-windows-x86_64.exe /mnt/c/Users/runneradmin/work/phantom-frida/phantom-frida/"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-phantom-frida-server
+          path: stealthfrida-server-16.4.0-windows-x86_64.exe
