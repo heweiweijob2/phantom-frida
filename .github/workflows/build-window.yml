@@ -5,28 +5,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential python3-pip mingw-w64 git
-          pip3 install frida-tools
-          npm install -g prebuildify
-      - name: Clone Frida repo and checkout 17.2.0
+          sudo apt-get install -y build-essential python3 python3-pip git meson ninja-build mingw-w64
+          pip3 install colorama prompt-toolkit pygments
+      - name: Clone Frida repo and fix libiconv
         run: |
           git clone -b 17.2.0 --depth=1 https://github.com/frida/frida.git
           cd frida
           python3 tools/ensure-submodules.py
-          npm install
-      - name: Cross-compile to Windows x64
+          # Fix libiconv empty structs for MSVC
+          sed -i '37s/struct loop_funcs {};/struct loop_funcs { char _dummy; };/' deps/libiconv/lib/genflags.c
+          sed -i '38s/struct iconv_fallbacks {};/struct iconv_fallbacks { char _dummy; };/' deps/libiconv/lib/genflags.c
+          sed -i '39s/struct iconv_hooks {};/struct iconv_hooks { char _dummy; };/' deps/libiconv/lib/genflags.c
+      - name: Configure and build
         run: |
           cd frida
-          prebuildify --platform win32 --arch x64 --target 14.15.0
-      - name: Upload compiled EXE
+          ./configure --host=x86_64-w64-mingw32 --prefix=$(pwd)/build
+          make -j4
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: frida-17.2.0-win32-x64
-          path: frida/prebuilds/win32-x64/
+          name: frida-17.2.0-windows
+          path: frida/build/bin/frida.exe
